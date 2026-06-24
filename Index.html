@@ -1,1 +1,1189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Finanzas - Gestión</title>
+    <link rel="manifest" href="./manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        /* ========== ESTILOS (compactos, sin cambios relevantes) ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; }
+        body { background: #f0f2f5; }
+        .app-header { background: #1a2c3e; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
+        .menu-icon { width: 34px; height: 34px; background: rgba(255,255,255,0.1); border-radius: 8px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; }
+        .menu-icon span { width: 18px; height: 2px; background: white; margin: 3px 0; border-radius: 2px; }
+        .app-title { font-size: 18px; font-weight: 600; color: white; }
+        .add-quick-btn { width: 34px; height: 34px; background: #2c5f8a; border-radius: 8px; display: flex; justify-content: center; align-items: center; cursor: pointer; color: white; font-size: 22px; }
+        .sidebar { position: fixed; top: 0; left: -280px; width: 280px; height: 100%; background: #fff; box-shadow: 2px 0 20px rgba(0,0,0,0.1); z-index: 1000; transition: left 0.3s; overflow-y: auto; }
+        .sidebar.open { left: 0; }
+        .sidebar-header { padding: 20px; background: #1a2c3e; color: white; text-align: center; margin-top: 54px; }
+        .sidebar-header h3 { font-size: 16px; margin-bottom: 4px; }
+        .sidebar-header p { font-size: 11px; opacity: 0.7; }
+        .sidebar-section { padding: 16px; border-bottom: 1px solid #e9ecef; }
+        .sidebar-section-title { font-weight: 600; color: #6c757d; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; }
+        .sidebar-item { padding: 8px 12px; margin: 4px 0; background: #f8f9fa; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; color: #2c3e50; }
+        .sidebar-item:hover { background: #e9ecef; transform: translateX(2px); }
+        .accordion-toggle { cursor: pointer; user-select: none; }
+        .accordion-toggle::after { content: '▶'; float: right; font-size: 12px; transition: transform 0.3s; }
+        .accordion-toggle.open::after { transform: rotate(90deg); }
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding-left: 16px; }
+        .accordion-content.open { max-height: 200px; }
+        .accordion-content .sidebar-item { margin-left: 8px; background: #f1f3f5; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; display: none; }
+        .overlay.active { display: block; }
+        .main-content { margin-top: 62px; padding: 16px; max-width: 1100px; margin-left: auto; margin-right: auto; }
+        .balance-card { background: linear-gradient(135deg, #1a2c3e, #2c5f8a); border-radius: 16px; padding: 16px; margin-bottom: 16px; text-align: center; cursor: pointer; transition: transform 0.2s; }
+        .balance-card:hover { transform: scale(1.02); }
+        .balance-label { font-size: 12px; color: rgba(255,255,255,0.7); margin-bottom: 4px; }
+        .balance-total { font-size: 32px; font-weight: 700; color: white; }
+        .submenu-tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid #e9ecef; padding-bottom: 6px; }
+        .submenu-tab { background: transparent; border: none; padding: 6px 12px; font-size: 14px; font-weight: 600; color: #6c757d; cursor: pointer; border-radius: 20px; transition: all 0.2s; }
+        .submenu-tab.active { background: #1a2c3e; color: white; }
+        .period-tabs { display: flex; gap: 6px; margin-bottom: 16px; background: white; padding: 4px; border-radius: 12px; }
+        .period-btn { flex: 1; padding: 8px; background: transparent; border: none; border-radius: 10px; color: #6c757d; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .period-btn.active { background: #1a2c3e; color: white; }
+        .stats-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .stat-card { background: white; border-radius: 16px; padding: 12px; text-align: center; border: 1px solid #e9ecef; }
+        .stat-card-title { font-size: 11px; font-weight: 600; color: #6c757d; margin-bottom: 6px; text-transform: uppercase; }
+        .stat-card-income { color: #28a745; font-size: 20px; font-weight: 700; }
+        .stat-card-expense { color: #dc3545; font-size: 20px; font-weight: 700; }
+        .stat-card-balance { color: #1a2c3e; font-size: 20px; font-weight: 700; }
+        .chart-card { background: white; border-radius: 16px; padding: 16px; border: 1px solid #e9ecef; }
+        .chart-card h3 { margin-bottom: 12px; text-align: center; font-size: 14px; font-weight: 600; color: #1a2c3e; }
+        canvas { max-height: 200px !important; height: 200px !important; }
+        .group-selector { display: flex; gap: 6px; margin-bottom: 12px; justify-content: center; }
+        .group-btn { background: #e9ecef; border: none; padding: 5px 12px; border-radius: 20px; font-weight: 600; font-size: 12px; color: #495057; cursor: pointer; }
+        .group-btn.active { background: #1a2c3e; color: white; }
+        .movements-list { background: white; border-radius: 16px; padding: 16px; border: 1px solid #e9ecef; max-height: 350px; overflow-y: auto; }
+        .movement-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #f0f0f0; }
+        .movement-desc { font-weight: 600; font-size: 13px; }
+        .movement-cat { font-size: 10px; color: #6c757d; margin-top: 2px; }
+        .movement-date { font-size: 10px; color: #adb5bd; }
+        .movement-amount { font-weight: 700; font-size: 14px; margin-right: 8px; }
+        .income { color: #28a745; } .expense { color: #dc3545; }
+        .btn-edit, .btn-delete { width: 28px; height: 28px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .btn-edit { background: #e9ecef; } .btn-delete { background: #f8d7da; color: #dc3545; }
+        .form-section { background: white; border-radius: 16px; padding: 16px; margin-bottom: 16px; border: 1px solid #e9ecef; }
+        .form-title { font-size: 16px; font-weight: 600; color: #1a2c3e; margin-bottom: 12px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 500; color: #495057; }
+        input, select, button { width: 100%; padding: 8px 10px; border: 1px solid #dee2e6; border-radius: 10px; font-size: 13px; }
+        .btn-primary { background: #1a2c3e; color: white; border: none; cursor: pointer; font-weight: 600; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary { background: #6c757d; color: white; border: none; cursor: pointer; font-weight: 500; }
+        .btn-success { background: #28a745; color: white; border: none; cursor: pointer; font-weight: 600; }
+        .btn-warning { background: #ffc107; color: #212529; border: none; cursor: pointer; font-weight: 600; }
+        .budget-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #e9ecef; }
+        .budget-name { font-weight: 600; font-size: 13px; }
+        .budget-spent { font-size: 10px; color: #6c757d; }
+        .budget-bar-container { flex: 2; margin: 0 8px; }
+        .budget-bar { background: #e9ecef; border-radius: 6px; height: 6px; overflow: hidden; }
+        .budget-bar-fill { background: #28a745; height: 100%; transition: width 0.3s; }
+        .budget-bar-fill.warning { background: #dc3545; }
+        .budget-amount { font-weight: 600; font-size: 13px; min-width: 70px; text-align: right; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; justify-content: center; align-items: center; }
+        .modal-content { background: white; border-radius: 20px; padding: 20px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .modal-header h3 { font-size: 18px; font-weight: 600; }
+        .close-modal { font-size: 24px; cursor: pointer; color: #adb5bd; }
+        .button-group { display: flex; gap: 10px; margin-top: 16px; }
+        #nuevoMovimientoModal .modal-content, #editModal .modal-content { padding: 16px; max-height: none; overflow-y: visible; }
+        .config-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .config-col { background: white; border-radius: 16px; padding: 16px; border: 1px solid #e9ecef; }
+        .config-col h3 { font-size: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .config-list { list-style: none; margin-bottom: 16px; }
+        .config-list li { display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #e9ecef; }
+        .config-list li span { font-size: 13px; font-weight: 500; }
+        .config-list li button { width: auto; padding: 4px 8px; margin-left: 6px; font-size: 11px; }
+        .add-cat-form { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+        .add-cat-form input { flex: 2; min-width: 120px; }
+        .add-cat-form select { flex: 1; min-width: 100px; }
+        .add-cat-form button { flex: 0; }
+        .modal-movimiento-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #e9ecef; }
+        .modal-movimiento-info { flex: 1; }
+        .modal-movimiento-desc { font-weight: 600; font-size: 14px; }
+        .modal-movimiento-cat { font-size: 11px; color: #6c757d; margin-top: 2px; }
+        .modal-movimiento-date { font-size: 11px; color: #adb5bd; margin-top: 2px; }
+        .modal-movimiento-amount { font-weight: 700; font-size: 16px; }
+        .distribucion-item, .plan-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #e9ecef; flex-wrap: wrap; }
+        .distribucion-info, .plan-info { flex: 1; min-width: 150px; }
+        .distribucion-nombre { font-weight: 600; font-size: 13px; }
+        .distribucion-detalle { font-size: 11px; color: #6c757d; margin-top: 2px; }
+        .distribucion-acciones { display: flex; gap: 6px; flex-wrap: wrap; }
+        .plan-nombre { font-weight: 600; font-size: 13px; }
+        .plan-detalle { font-size: 11px; color: #6c757d; margin-top: 2px; }
+        .plan-monto { font-weight: 700; font-size: 14px; }
+        .plan-monto.saldo { color: #1a2c3e; }
+        .plan-monto.saldo.positivo { color: #28a745; }
+        .plan-monto.saldo.negativo { color: #dc3545; }
+        .btn-asignar { background: #17a2b8; color: white; border: none; padding: 2px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; }
+        .btn-asignar:hover { background: #138496; }
+        .btn-crear-cat { background: #28a745; color: white; border: none; padding: 2px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; }
+        .btn-crear-cat:hover { background: #1e7e34; }
+        .plan-bar-container { width: 100%; margin-top: 4px; }
+        .plan-bar { background: #e9ecef; border-radius: 6px; height: 6px; overflow: hidden; }
+        .plan-bar-fill { background: #28a745; height: 100%; transition: width 0.3s; }
+        .plan-bar-fill.warning { background: #dc3545; }
+        .plan-item { flex-wrap: wrap; }
+        .plan-item .plan-info { flex: 1; min-width: 120px; }
+        .plan-item .plan-derecha { text-align: right; min-width: 100px; }
+        .distribucion-fila { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #e9ecef; flex-wrap: wrap; }
+        .distribucion-fila input[type="text"] { flex: 2; min-width: 100px; }
+        .distribucion-fila input[type="number"] { flex: 1; min-width: 80px; }
+        .distribucion-fila .acciones { display: flex; gap: 6px; flex-wrap: wrap; }
+        .msg-porcentaje { font-size: 13px; margin-top: 8px; padding: 6px 10px; border-radius: 6px; }
+        .msg-porcentaje.ok { background: #d4edda; color: #155724; }
+        .msg-porcentaje.warning { background: #fff3cd; color: #856404; }
+        .msg-porcentaje.error { background: #f8d7da; color: #721c24; }
+        @media (max-width: 768px) { .config-container { grid-template-columns: 1fr; } .main-content { padding: 12px; } .balance-total { font-size: 28px; } .stats-cards { grid-template-columns: 1fr; } canvas { max-height: 180px !important; } }
+    </style>
+</head>
+<body>
+<div class="app-header">
+    <div class="menu-icon" onclick="toggleMenu()"><span></span><span></span><span></span></div>
+    <div class="app-title">💰 FINANZAS</div>
+    <div class="add-quick-btn" onclick="abrirModalNuevoMovimiento()">+</div>
+</div>
 
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header"><h3>Menú Principal</h3><p>Gestión financiera</p></div>
+    <div class="sidebar-section">
+        <div class="sidebar-section-title">Navegación</div>
+        <div class="sidebar-item" onclick="cerrarYCambiarVista('dashboard')"><span>📊</span><span>Dashboard</span></div>
+        <div class="sidebar-item" onclick="cerrarYCambiarVista('movimientos')"><span>📝</span><span>Todos los movimientos</span></div>
+        <div class="sidebar-item" onclick="cerrarYCambiarVista('presupuestos')"><span>🎯</span><span>Presupuestos mensuales</span></div>
+        <div class="sidebar-item" onclick="cerrarYCambiarVista('plandistribucion')"><span>📊</span><span>Plan de distribución</span></div>
+
+        <!-- Acordeón de Configuración -->
+        <div class="accordion-toggle sidebar-item" onclick="toggleAccordion()"><span>⚙️</span><span>Configuración</span></div>
+        <div class="accordion-content" id="accordionContent">
+            <div class="sidebar-item" onclick="cerrarYCambiarVista('configuracion')"><span>📂</span><span>Categorías</span></div>
+            <div class="sidebar-item" onclick="cerrarYCambiarVista('distribucion')"><span>📊</span><span>Distribución</span></div>
+        </div>
+    </div>
+    <div class="sidebar-section">
+        <div class="sidebar-section-title">Datos</div>
+        <div class="sidebar-item" onclick="exportarJSON(); toggleMenu()"><span>📤</span><span>Exportar datos</span></div>
+        <div class="sidebar-item" onclick="importarJSONPrompt(); toggleMenu()"><span>📥</span><span>Importar datos</span></div>
+    </div>
+    <div class="sidebar-section">
+        <div class="sidebar-section-title">Información</div>
+        <div class="sidebar-item" onclick="abrirAcerca(); toggleMenu()"><span>ℹ️</span><span>Acerca de</span></div>
+    </div>
+</div>
+<div class="overlay" id="overlay" onclick="cerrarMenu()"></div>
+<div class="main-content" id="mainContent"></div>
+
+<!-- Modales -->
+<div id="nuevoMovimientoModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>➕ Nuevo movimiento</h3><span class="close-modal" onclick="cerrarModalNuevoMovimiento()">&times;</span></div>
+<form id="nuevoMovimientoForm"><div class="form-group"><label>Tipo</label><select id="modalTipo" required><option value="ingreso">💰 Ingreso</option><option value="gasto">💸 Gasto</option></select></div>
+<div class="form-group"><label>Monto (Bs)</label><input type="text" id="modalMonto" required placeholder="Ej: 1.234,56"></div>
+<div class="form-group"><label>Descripción</label><input type="text" id="modalDescripcion" required placeholder="Ej: Sueldo, Comida..."></div>
+<div class="form-group"><label>Categoría</label><select id="modalCategoria" required></select></div>
+<div class="form-group"><label>Fecha</label><input type="date" id="modalFecha" required></div>
+<button type="submit" class="btn-primary">✅ Guardar movimiento</button></form></div></div>
+
+<div id="editModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>✏️ Editar movimiento</h3><span class="close-modal" onclick="cerrarModal()">&times;</span></div>
+<form id="editForm"><input type="hidden" id="editId"><div class="form-group"><label>Tipo</label><select id="editTipo" required onchange="actualizarSelectEditCategoria(this.value)"><option value="ingreso">💰 Ingreso</option><option value="gasto">💸 Gasto</option></select></div>
+<div class="form-group"><label>Monto (Bs)</label><input type="text" id="editMonto" required placeholder="Ej: 1.234,56"></div>
+<div class="form-group"><label>Descripción</label><input type="text" id="editDescripcion" required></div>
+<div class="form-group"><label>Categoría</label><select id="editCategoria" required></select></div>
+<div class="form-group"><label>Fecha</label><input type="date" id="editFecha" required></div>
+<div class="button-group"><button type="submit" class="btn-primary">💾 Guardar cambios</button><button type="button" class="btn-secondary" onclick="cerrarModal()">Cancelar</button></div></form></div></div>
+
+<div id="movimientosModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><h3>📋 Todos los movimientos</h3><span class="close-modal" onclick="cerrarMovimientosModal()">&times;</span></div>
+        <div id="listaMovimientosModal" style="max-height: 60vh; overflow-y: auto;"></div>
+        <div class="button-group" style="margin-top: 16px;"><button class="btn-secondary" onclick="cerrarMovimientosModal()">Cerrar</button></div>
+    </div>
+</div>
+
+<div id="acercaModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>ℹ️ Acerca de</h3><span class="close-modal" onclick="cerrarAcercaModal()">&times;</span></div>
+<div><p style="font-size:16px;font-weight:600;color:#1a2c3e;">Finanzas Pro</p><p style="color:#6c757d; font-size:12px;">Versión 6.1</p><hr style="margin:12px 0;"><p style="font-size:12px;"><strong>Características:</strong></p><ul style="margin-left:20px; font-size:12px;"><li>✓ Dashboard unificado con tres pestañas</li><li>✓ Presupuestos mensuales dinámicos</li><li>✓ Gestión completa de categorías (CRUD)</li><li>✓ Gráficos actualizados en tiempo real</li><li>✓ Gráfico semanal: semanas del mes actual</li><li>✓ Distribución de ingresos: edición en línea, validación 100%</li><li>✓ Asignación de categorías por distribución</li><li>✓ Creación de categorías desde distribución</li></ul></div></div></div>
+
+<script>
+// ==================== CONFIGURACIÓN GLOBAL ====================
+let movimientos = [];
+let presupuestos = {};
+let chartActual = null;
+let chartBarrasDinamico = null;
+let vistaActual = 'dashboard';
+let periodoDashboard = 'hoy';
+let agrupacionActual = 'semana';
+let periodoCategorias = 'mes';
+let tipoCategorias = 'ingreso';
+let subSeccionDashboard = 'balance';
+let categoriasPersonalizadas = { ingreso: [], gasto: [] };
+let distribuciones = [];
+let modalAsignacionRef = null; // Referencia al modal de asignación de categorías
+
+// ==================== FUNCIÓN PARA ACORDEÓN ====================
+function toggleAccordion() {
+    const content = document.getElementById('accordionContent');
+    const toggle = document.querySelector('.accordion-toggle');
+    content.classList.toggle('open');
+    toggle.classList.toggle('open');
+}
+window.toggleAccordion = toggleAccordion;
+
+// ==================== FUNCIONES DE CATEGORÍAS ====================
+function cargarCategorias() {
+    const guardado = localStorage.getItem('finanzas_categorias');
+    if (guardado) {
+        categoriasPersonalizadas = JSON.parse(guardado);
+    } else {
+        categoriasPersonalizadas = { ingreso: ['Sueldo', 'Ventas', 'Otros'], gasto: ['Alimentos', 'Vivienda', 'Otros'] };
+        guardarCategorias();
+    }
+}
+function guardarCategorias() { localStorage.setItem('finanzas_categorias', JSON.stringify(categoriasPersonalizadas)); }
+function agregarCategoria(tipo, nombre) {
+    nombre = nombre.trim();
+    if (!nombre) return false;
+    if (categoriasPersonalizadas[tipo].some(c => c.toLowerCase() === nombre.toLowerCase())) return false;
+    categoriasPersonalizadas[tipo].push(nombre);
+    guardarCategorias();
+    return true;
+}
+function editarCategoria(tipo, viejoNombre, nuevoNombre) {
+    viejoNombre = viejoNombre.trim();
+    nuevoNombre = nuevoNombre.trim();
+    if (!nuevoNombre || viejoNombre === nuevoNombre) return false;
+    const idx = categoriasPersonalizadas[tipo].findIndex(c => c === viejoNombre);
+    if (idx === -1) return false;
+    if (categoriasPersonalizadas[tipo].some(c => c.toLowerCase() === nuevoNombre.toLowerCase())) return false;
+    movimientos.forEach(m => { if (m.tipo === tipo && m.categoria === viejoNombre) m.categoria = nuevoNombre; });
+    if (tipo === 'gasto' && presupuestos[viejoNombre] !== undefined) { presupuestos[nuevoNombre] = presupuestos[viejoNombre]; delete presupuestos[viejoNombre]; }
+    categoriasPersonalizadas[tipo][idx] = nuevoNombre;
+    guardarCategorias();
+    guardarDatos();
+    return true;
+}
+function eliminarCategoria(tipo, nombre) {
+    if (movimientos.some(m => m.tipo === tipo && m.categoria === nombre)) {
+        alert(`No se puede eliminar "${nombre}" porque hay movimientos asociados.`);
+        return false;
+    }
+    if (tipo === 'gasto' && presupuestos[nombre] !== undefined) {
+        alert(`No se puede eliminar "${nombre}" porque tiene un presupuesto.`);
+        return false;
+    }
+    const idx = categoriasPersonalizadas[tipo].findIndex(c => c === nombre);
+    if (idx !== -1) { categoriasPersonalizadas[tipo].splice(idx, 1); guardarCategorias(); return true; }
+    return false;
+}
+function obtenerCategoriasUnicas() { return [...new Set(movimientos.map(m => m.categoria))]; }
+
+// ==================== FUNCIONES DE DISTRIBUCIÓN ====================
+function cargarDistribuciones() {
+    const guardado = localStorage.getItem('finanzas_distribuciones');
+    if (guardado) {
+        distribuciones = JSON.parse(guardado);
+    } else {
+        distribuciones = [];
+        guardarDistribuciones();
+    }
+}
+function guardarDistribuciones() { localStorage.setItem('finanzas_distribuciones', JSON.stringify(distribuciones)); }
+function agregarDistribucion(nombre, porcentaje, categoriasGasto) {
+    nombre = nombre.trim();
+    if (!nombre) return false;
+    if (distribuciones.some(d => d.nombre.toLowerCase() === nombre.toLowerCase())) return false;
+    const nueva = { id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5), nombre, porcentaje, categoriasGasto: categoriasGasto || [] };
+    distribuciones.push(nueva);
+    guardarDistribuciones();
+    return true;
+}
+function editarDistribucion(id, nombre, porcentaje, categoriasGasto) {
+    const idx = distribuciones.findIndex(d => d.id === id);
+    if (idx === -1) return false;
+    if (distribuciones.some(d => d.id !== id && d.nombre.toLowerCase() === nombre.toLowerCase())) return false;
+    distribuciones[idx] = { id, nombre: nombre.trim(), porcentaje, categoriasGasto: categoriasGasto || [] };
+    guardarDistribuciones();
+    return true;
+}
+function eliminarDistribucion(id) {
+    const idx = distribuciones.findIndex(d => d.id === id);
+    if (idx === -1) return false;
+    distribuciones.splice(idx, 1);
+    guardarDistribuciones();
+    return true;
+}
+function actualizarCategoriasDistribucion(id, categoriasGasto) {
+    const idx = distribuciones.findIndex(d => d.id === id);
+    if (idx === -1) return false;
+    distribuciones[idx].categoriasGasto = categoriasGasto || [];
+    guardarDistribuciones();
+    return true;
+}
+
+// ==== NUEVA FUNCIÓN: agregar categoría y asignarla a distribución ====
+function agregarCategoriaYAsignar(tipo, nombre, idDistribucion) {
+    if (!agregarCategoria(tipo, nombre)) return false;
+    if (idDistribucion) {
+        const dist = distribuciones.find(d => d.id === idDistribucion);
+        if (dist && !dist.categoriasGasto.includes(nombre)) {
+            dist.categoriasGasto.push(nombre);
+            guardarDistribuciones();
+        }
+    }
+    guardarDatos();
+    return true;
+}
+
+function calcularDistribuciones() {
+    const hoy = new Date();
+    const hoyStr = hoy.toLocaleDateString('en-CA');
+    const mes = hoy.getMonth();
+    const año = hoy.getFullYear();
+    
+    let ingresosTotal = 0;
+    movimientos.forEach(m => {
+        if (m.tipo === 'ingreso') {
+            const f = new Date(m.fecha + 'T12:00:00');
+            if (f.getMonth() === mes && f.getFullYear() === año && m.fecha <= hoyStr) {
+                ingresosTotal += m.monto;
+            }
+        }
+    });
+    
+    const gastosPorCategoria = {};
+    movimientos.forEach(m => {
+        if (m.tipo === 'gasto') {
+            const f = new Date(m.fecha + 'T12:00:00');
+            if (f.getMonth() === mes && f.getFullYear() === año && m.fecha <= hoyStr) {
+                gastosPorCategoria[m.categoria] = (gastosPorCategoria[m.categoria] || 0) + m.monto;
+            }
+        }
+    });
+    
+    const resultado = distribuciones.map(d => {
+        const asignado = ingresosTotal * (d.porcentaje / 100);
+        let gastado = 0;
+        d.categoriasGasto.forEach(cat => {
+            gastado += (gastosPorCategoria[cat] || 0);
+        });
+        return { ...d, asignado, gastado, saldo: asignado - gastado };
+    });
+    return { ingresosTotal, resultado };
+}
+
+// ==================== ORDENAMIENTO ====================
+function ordenarMovimientosPorFecha(lista) {
+    return [...lista].sort((a, b) => {
+        const fechaA = new Date(a.fecha + 'T12:00:00');
+        const fechaB = new Date(b.fecha + 'T12:00:00');
+        if (fechaB - fechaA !== 0) return fechaB - fechaA;
+        return b.id - a.id;
+    });
+}
+
+// ==================== FUNCIONES BASE ====================
+function formatearMontoVisual(v) { return (isNaN(v) || v===null) ? '0,00' : v.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function convertirTextoAMonto(t) { if(!t) return 0; let n = parseFloat(t.toString().replace(/\./g,'').replace(',','.')); return isNaN(n)?0:n; }
+function normalizarFecha(f) { let d = new Date(f); return d.toISOString().split('T')[0]; }
+function esMismaFecha(f1,f2) { return normalizarFecha(f1) === normalizarFecha(f2); }
+function mismaSemana(f1,f2) {
+    function getWeek(d) { let date = new Date(d); date.setHours(0,0,0,0); date.setDate(date.getDate() + 4 - (date.getDay() || 7)); let yearStart = new Date(date.getFullYear(),0,1); return Math.ceil((((date - yearStart) / 86400000) + 1) / 7); }
+    let d1 = new Date(f1), d2 = new Date(f2);
+    return d1.getFullYear() === d2.getFullYear() && getWeek(d1) === getWeek(d2);
+}
+function mismoMes(f1,f2) { let d1 = new Date(f1), d2 = new Date(f2); return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth(); }
+
+function cargarDatos() {
+    const g = localStorage.getItem('finanzas_app');
+    if(g) { let data = JSON.parse(g); movimientos = data.movimientos || []; presupuestos = data.presupuestos || {}; }
+    else { movimientos = []; presupuestos = {}; }
+    movimientos = ordenarMovimientosPorFecha(movimientos);
+    cargarCategorias();
+    cargarDistribuciones();
+    renderizarVistaActual();
+    actualizarSelects();
+}
+function guardarDatos() { 
+    movimientos = ordenarMovimientosPorFecha(movimientos);
+    localStorage.setItem('finanzas_app', JSON.stringify({ movimientos, presupuestos, version: "6.1" })); 
+}
+function actualizarSelects() {
+    const filtroCat = document.getElementById('filtroCategoria');
+    if(filtroCat) {
+        const todas = [...new Set([...obtenerCategoriasUnicas(), ...categoriasPersonalizadas.ingreso, ...categoriasPersonalizadas.gasto])];
+        filtroCat.innerHTML = '<option value="">Todas las categorías</option>';
+        todas.forEach(c => filtroCat.innerHTML += `<option value="${c}">${c}</option>`);
+    }
+    const selectPresup = document.getElementById('selectCategoriaPresupuesto');
+    if(selectPresup) { selectPresup.innerHTML = ''; categoriasPersonalizadas.gasto.forEach(c => selectPresup.innerHTML += `<option value="${c}">${c}</option>`); }
+    const mt = document.getElementById('modalTipo');
+    const mc = document.getElementById('modalCategoria');
+    if(mt && mc) {
+        let opts = mt.value === 'ingreso' ? categoriasPersonalizadas.ingreso : categoriasPersonalizadas.gasto;
+        mc.innerHTML = ''; opts.forEach(c => mc.innerHTML += `<option value="${c}">${c}</option>`);
+    }
+}
+function actualizarSelectEditCategoria(tipo) {
+    const ec = document.getElementById('editCategoria');
+    if(!ec) return;
+    let opts = tipo === 'ingreso' ? categoriasPersonalizadas.ingreso : categoriasPersonalizadas.gasto;
+    ec.innerHTML = ''; opts.forEach(c => ec.innerHTML += `<option value="${c}">${c}</option>`);
+}
+function obtenerEstadisticasPorPeriodo(periodo) {
+    const hoy = new Date().toLocaleDateString('en-CA');
+    let ing=0, gas=0;
+    movimientos.forEach(m=>{
+        let incluir=false;
+        if(periodo==='hoy') incluir=esMismaFecha(m.fecha,hoy);
+        else if(periodo==='semana') incluir=mismaSemana(m.fecha,hoy);
+        else if(periodo==='mes') incluir=mismoMes(m.fecha,hoy);
+        if(incluir) { if(m.tipo==='ingreso') ing+=m.monto; else gas+=m.monto; }
+    });
+    return { ingresos:ing, gastos:gas, balance:ing-gas };
+}
+function getTotalBalance() {
+    let ing=movimientos.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+m.monto,0);
+    let gas=movimientos.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0);
+    return ing-gas;
+}
+
+// ==================== DATOS PARA GRÁFICOS ====================
+function obtenerDatosDiarios() {
+    const hoy = new Date();
+    let lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() - (hoy.getDay()===0?6:hoy.getDay()-1));
+    const dias = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+    let labels=[], ingresosData=[], gastosData=[];
+    for(let i=0;i<7;i++){
+        let f = new Date(lunes); f.setDate(lunes.getDate()+i);
+        let fstr = f.toLocaleDateString('en-CA');
+        labels.push(dias[i]);
+        let ing=0, gas=0;
+        movimientos.forEach(m=>{ if(m.fecha===fstr){ if(m.tipo==='ingreso') ing+=m.monto; else gas+=m.monto; } });
+        ingresosData.push(ing); gastosData.push(gas);
+    }
+    return {labels, ingresosData, gastosData};
+}
+function obtenerDatosSemanales() {
+    const hoy = new Date();
+    const año = hoy.getFullYear();
+    const mes = hoy.getMonth();
+    const primerDia = new Date(año, mes, 1);
+    const ultimoDia = new Date(año, mes + 1, 0);
+    function getWeekNumber(date) {
+        const d = new Date(date);
+        d.setHours(0,0,0,0);
+        d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+        const yearStart = new Date(d.getFullYear(), 0, 1);
+        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
+    const semanasMap = new Map();
+    for (let d = new Date(primerDia); d <= ultimoDia; d.setDate(d.getDate() + 1)) {
+        const fechaStr = d.toLocaleDateString('en-CA');
+        const semanaNum = getWeekNumber(d);
+        if (!semanasMap.has(semanaNum)) semanasMap.set(semanaNum, { ing: 0, gas: 0 });
+        const acc = semanasMap.get(semanaNum);
+        movimientos.forEach(m => {
+            if (m.fecha === fechaStr) {
+                if (m.tipo === 'ingreso') acc.ing += m.monto;
+                else acc.gas += m.monto;
+            }
+        });
+    }
+    const semanasOrdenadas = Array.from(semanasMap.keys()).sort((a,b) => a - b);
+    const labels = semanasOrdenadas.map((_, idx) => `Semana ${idx+1}`);
+    const ingresosData = semanasOrdenadas.map(sem => semanasMap.get(sem).ing);
+    const gastosData = semanasOrdenadas.map(sem => semanasMap.get(sem).gas);
+    return { labels, ingresosData, gastosData };
+}
+function obtenerDatosMensuales() {
+    const hoy = new Date();
+    let añoAct = hoy.getFullYear(), mesAct = hoy.getMonth();
+    let meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    let labels=[], ingD=[], gasD=[];
+    for(let i=5;i>=0;i--){
+        let mes = mesAct-i, año = añoAct;
+        if(mes<0){ año--; mes+=12; }
+        labels.push(`${meses[mes]} ${año}`);
+        let ing=0, gas=0;
+        movimientos.forEach(m=>{
+            let fm = new Date(m.fecha+'T12:00:00');
+            if(fm.getFullYear()===año && fm.getMonth()===mes){
+                if(m.tipo==='ingreso') ing+=m.monto; else gas+=m.monto;
+            }
+        });
+        ingD.push(ing); gasD.push(gas);
+    }
+    return {labels, ingresosData:ingD, gastosData:gasD};
+}
+function obtenerDatosAgrupados(ag) { 
+    if(ag==='dia') return obtenerDatosDiarios(); 
+    if(ag==='semana') return obtenerDatosSemanales(); 
+    return obtenerDatosMensuales(); 
+}
+function actualizarGraficoBarrasDinamico() {
+    if(chartBarrasDinamico) chartBarrasDinamico.destroy();
+    let {labels, ingresosData, gastosData} = obtenerDatosAgrupados(agrupacionActual);
+    let ctx = document.getElementById('graficoBarrasDinamico');
+    if(!ctx) return;
+    chartBarrasDinamico = new Chart(ctx, { type:'bar', data:{labels, datasets:[{label:'Ingresos', data:ingresosData, backgroundColor:'#28a745'},{label:'Gastos', data:gastosData, backgroundColor:'#dc3545'}]}, options:{responsive:true, maintainAspectRatio:true, scales:{y:{beginAtZero:true, ticks:{callback:v=>v.toLocaleString('es-VE')}}}, plugins:{legend:{position:'bottom'}}} });
+}
+function cambiarAgrupacion(tipo) { agrupacionActual=tipo; if(vistaActual==='dashboard' && subSeccionDashboard==='evolucion'){ actualizarGraficoBarrasDinamico(); renderizarVistaActual(); } }
+function actualizarGraficoCategorias() {
+    if(chartActual) chartActual.destroy();
+    const hoy = new Date().toLocaleDateString('en-CA');
+    let filtrados = movimientos.filter(m=>{
+        if(periodoCategorias==='hoy') return esMismaFecha(m.fecha,hoy);
+        if(periodoCategorias==='semana') return mismaSemana(m.fecha,hoy);
+        if(periodoCategorias==='mes') return mismoMes(m.fecha,hoy);
+        return true;
+    });
+    let datosCat = {};
+    let cats = tipoCategorias==='ingreso' ? categoriasPersonalizadas.ingreso : categoriasPersonalizadas.gasto;
+    cats.forEach(c=>datosCat[c]=0);
+    filtrados.forEach(m=>{ if(m.tipo===tipoCategorias) datosCat[m.categoria]=(datosCat[m.categoria]||0)+m.monto; });
+    filtrados.forEach(m=>{ if(m.tipo===tipoCategorias && !cats.includes(m.categoria)) datosCat[m.categoria]=(datosCat[m.categoria]||0)+m.monto; });
+    let labels = Object.keys(datosCat).filter(c=>datosCat[c]>0);
+    let data = labels.map(c=>datosCat[c]);
+    let colores = tipoCategorias==='ingreso' ? ['#28a745','#20c997','#17a2b8'] : ['#dc3545','#fd7e14','#28a745','#17a2b8','#6f42c1','#20c997'];
+    let ctx = document.getElementById('graficoPastelCategorias');
+    if(ctx) chartActual = new Chart(ctx, { type:'pie', data:{labels, datasets:[{data, backgroundColor:colores}]}, options:{responsive:true, maintainAspectRatio:true, plugins:{legend:{position:'bottom'}}} });
+}
+
+// ==================== RENDERIZADO DE VISTAS ====================
+function renderizarVistaActual() {
+    const cont = document.getElementById('mainContent');
+    if(chartActual) { chartActual.destroy(); chartActual=null; }
+    if(chartBarrasDinamico) { chartBarrasDinamico.destroy(); chartBarrasDinamico=null; }
+    if(vistaActual==='dashboard') { cont.innerHTML = renderDashboard(); attachDashboardEvents(); }
+    else if(vistaActual==='movimientos') { cont.innerHTML = renderMovimientos(); attachMovimientosEvents(); }
+    else if(vistaActual==='presupuestos') { cont.innerHTML = renderPresupuestos(); attachPresupuestosEvents(); }
+    else if(vistaActual==='plandistribucion') { cont.innerHTML = renderPlanDistribucion(); attachPlanEvents(); }
+    else if(vistaActual==='configuracion') { cont.innerHTML = renderConfiguracion(); attachConfiguracionEvents(); }
+    else if(vistaActual==='distribucion') { cont.innerHTML = renderDistribucion(); attachDistribucionEvents(); }
+}
+
+function renderDashboard() {
+    let total = getTotalBalance();
+    let contenido = '';
+    if(subSeccionDashboard==='balance') contenido = renderBalanceContent();
+    else if(subSeccionDashboard==='evolucion') contenido = renderEvolucionContent();
+    else if(subSeccionDashboard==='categorias') contenido = renderCategoriasContent();
+    return `<div class="balance-card" onclick="abrirMovimientosModal()">
+                <div class="balance-label">BALANCE TOTAL</div>
+                <div class="balance-total">${formatearMontoVisual(total)} Bs</div>
+            </div>
+            <div class="submenu-tabs"><button class="submenu-tab ${subSeccionDashboard==='balance'?'active':''}" onclick="cambiarSubSeccionDashboard('balance')">Balance</button><button class="submenu-tab ${subSeccionDashboard==='evolucion'?'active':''}" onclick="cambiarSubSeccionDashboard('evolucion')">Gráfico</button><button class="submenu-tab ${subSeccionDashboard==='categorias'?'active':''}" onclick="cambiarSubSeccionDashboard('categorias')">Categorías</button></div>${contenido}`;
+}
+function renderBalanceContent() {
+    let stats = obtenerEstadisticasPorPeriodo(periodoDashboard);
+    return `<div class="period-tabs"><button class="period-btn ${periodoDashboard==='hoy'?'active':''}" onclick="cambiarPeriodoDashboard('hoy')">📅 Hoy</button><button class="period-btn ${periodoDashboard==='semana'?'active':''}" onclick="cambiarPeriodoDashboard('semana')">📆 7 Días</button><button class="period-btn ${periodoDashboard==='mes'?'active':''}" onclick="cambiarPeriodoDashboard('mes')">📅 30 Días</button></div>
+            <div class="stats-cards"><div class="stat-card"><div class="stat-card-title">INGRESOS</div><div class="stat-card-income">+${formatearMontoVisual(stats.ingresos)} Bs</div></div><div class="stat-card"><div class="stat-card-title">GASTOS</div><div class="stat-card-expense">-${formatearMontoVisual(stats.gastos)} Bs</div></div><div class="stat-card"><div class="stat-card-title">BALANCE</div><div class="stat-card-balance">${formatearMontoVisual(stats.balance)} Bs</div></div></div>`;
+}
+function renderEvolucionContent() {
+    return `<div class="chart-card"><h3>📊 Evolución de Ingresos y Gastos</h3><div class="group-selector"><button class="group-btn ${agrupacionActual==='dia'?'active':''}" data-group="dia" onclick="cambiarAgrupacionDashboard('dia')">Por día</button><button class="group-btn ${agrupacionActual==='semana'?'active':''}" data-group="semana" onclick="cambiarAgrupacionDashboard('semana')">Por semana</button><button class="group-btn ${agrupacionActual==='mes'?'active':''}" data-group="mes" onclick="cambiarAgrupacionDashboard('mes')">Por mes</button></div><canvas id="graficoBarrasDinamico"></canvas></div>`;
+}
+function renderCategoriasContent() {
+    let labelPer = periodoCategorias==='hoy'?'Hoy':(periodoCategorias==='semana'?'Semana':'Mes');
+    let labelTip = tipoCategorias==='ingreso'?'Ingresos':'Gastos';
+    return `<div class="chart-card"><h3>Distribución de ${labelTip} (${labelPer})</h3><div class="group-selector"><button class="group-btn ${periodoCategorias==='hoy'?'active':''}" onclick="cambiarPeriodoCategoriasDashboard('hoy')">Hoy</button><button class="group-btn ${periodoCategorias==='semana'?'active':''}" onclick="cambiarPeriodoCategoriasDashboard('semana')">Semana</button><button class="group-btn ${periodoCategorias==='mes'?'active':''}" onclick="cambiarPeriodoCategoriasDashboard('mes')">Mes</button></div><div class="group-selector"><button class="group-btn ${tipoCategorias==='ingreso'?'active':''}" onclick="cambiarTipoCategoriasDashboard('ingreso')">💰 Ingresos</button><button class="group-btn ${tipoCategorias==='gasto'?'active':''}" onclick="cambiarTipoCategoriasDashboard('gasto')">💸 Gastos</button></div><canvas id="graficoPastelCategorias"></canvas></div>`;
+}
+
+function renderMovimientos() {
+    const movimientosOrdenados = ordenarMovimientosPorFecha(movimientos);
+    return `<div class="form-section"><div class="form-title">🔍 Filtros</div><div class="filters-grid"><input type="date" id="filtroFechaInicio" placeholder="Fecha inicio"><input type="date" id="filtroFechaFin" placeholder="Fecha fin"><select id="filtroTipo"><option value="">Todos</option><option value="ingreso">Ingresos</option><option value="gasto">Gastos</option></select><select id="filtroCategoria"></select><div style="display:flex;gap:8px;"><button class="btn-secondary" onclick="aplicarFiltros()">🔍 Aplicar</button><button class="btn-secondary" onclick="limpiarFiltros()">🗑️ Limpiar</button></div></div></div><div class="movements-list"><div id="todosMovimientos">${renderMovimientosLista(movimientosOrdenados)}</div></div>`;
+}
+function renderMovimientosLista(lista) {
+    if(lista.length===0) return '<div class="empty-state">No hay movimientos</div>';
+    return lista.map(m=>`<div class="movement-item"><div class="movement-info"><div class="movement-desc">${m.descripcion}</div><div class="movement-cat">📌 ${m.categoria}</div><div class="movement-date">📅 ${m.fecha}</div></div><div class="movement-amount ${m.tipo==='ingreso'?'income':'expense'}">${m.tipo==='ingreso'?'+':'-'} ${formatearMontoVisual(m.monto)} Bs</div><div class="action-buttons"><button class="btn-edit" onclick="abrirModalEditar(${m.id})">✏️</button><button class="btn-delete" onclick="eliminarMovimiento(${m.id})">🗑️</button></div></div>`).join('');
+}
+function renderPresupuestos() {
+    return `<div class="form-section"><div class="form-title">🎯 Presupuestos mensuales</div><div id="listaPresupuestos">${renderListaPresupuestos()}</div><div class="form-group" style="margin-top:16px;"><label>Configurar presupuesto</label><div style="display:flex;gap:8px;"><select id="selectCategoriaPresupuesto" style="flex:2;"></select><input type="number" id="montoPresupuesto" step="0.01" placeholder="Monto" style="flex:1;"><button class="btn-primary" onclick="guardarPresupuesto()" style="flex:0;">Guardar</button></div></div></div>`;
+}
+function renderListaPresupuestos() {
+    let mes = new Date().getMonth(), año = new Date().getFullYear();
+    let gastosMes = {};
+    categoriasPersonalizadas.gasto.forEach(c=>gastosMes[c]=0);
+    movimientos.forEach(m=>{ if(m.tipo==='gasto'){ let f=new Date(m.fecha+'T12:00:00'); if(f.getMonth()===mes && f.getFullYear()===año) gastosMes[m.categoria]=(gastosMes[m.categoria]||0)+m.monto; } });
+    return categoriasPersonalizadas.gasto.map(cat=>{ let pres=presupuestos[cat]||0, gastado=gastosMes[cat]||0, porc=pres>0?(gastado/pres)*100:0, warn=porc>80; return `<div class="budget-item"><div class="budget-info"><div class="budget-name">${cat}</div><div class="budget-spent">Gastado: ${formatearMontoVisual(gastado)} Bs</div></div><div class="budget-bar-container"><div class="budget-bar"><div class="budget-bar-fill ${warn?'warning':''}" style="width:${Math.min(porc,100)}%"></div></div></div><div class="budget-amount">${formatearMontoVisual(pres)} Bs</div></div>`; }).join('');
+}
+
+// ==================== VISTA PLAN DE DISTRIBUCIÓN ====================
+function renderPlanDistribucion() {
+    const { ingresosTotal, resultado } = calcularDistribuciones();
+    let html = `<div class="form-section"><div class="form-title">📊 Plan de distribución</div>`;
+    html += `<div style="margin-bottom:16px;"><div class="stats-cards"><div class="stat-card"><div class="stat-card-title">Ingresos hasta hoy</div><div class="stat-card-income">+${formatearMontoVisual(ingresosTotal)} Bs</div></div></div>`;
+    if (resultado.length === 0) {
+        html += `<div class="empty-state">No hay distribuciones configuradas. Ve a Configuración > Distribución para crear una.</div>`;
+    } else {
+        html += `<div style="margin-top:12px;">`;
+        resultado.forEach(d => {
+            const saldoClass = d.saldo >= 0 ? 'positivo' : 'negativo';
+            const pctGastado = d.asignado > 0 ? Math.min(100, (d.gastado / d.asignado) * 100) : 0;
+            const barClass = pctGastado > 80 ? 'warning' : '';
+            html += `<div class="plan-item">
+                        <div class="plan-info">
+                            <div class="plan-nombre">${d.nombre}</div>
+                            <div class="plan-detalle">${d.porcentaje}% del ingreso</div>
+                            <div class="plan-bar-container">
+                                <div class="plan-bar">
+                                    <div class="plan-bar-fill ${barClass}" style="width: ${pctGastado}%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="plan-derecha">
+                            <div class="plan-monto saldo ${saldoClass}">${formatearMontoVisual(d.saldo)} Bs</div>
+                        </div>
+                    </div>`;
+        });
+        html += `</div>`;
+    }
+    html += `</div></div>`;
+    return html;
+}
+
+// ==================== VISTA DE CONFIGURACIÓN DE CATEGORÍAS (MEJORADA) ====================
+function renderConfiguracion() {
+    // Construir select de distribuciones para categorías de gasto
+    let distribucionesSelect = '<option value="">Ninguna</option>';
+    distribuciones.forEach(d => {
+        distribucionesSelect += `<option value="${d.id}">${d.nombre}</option>`;
+    });
+    
+    return `<div class="form-section"><div class="form-title">⚙️ Configuración de categorías</div><div class="config-container"><div class="config-col"><h3>💰 Ingresos <button class="btn-secondary" style="width:auto; padding:4px 8px;" onclick="reiniciarCategoriasDefault('ingreso')">Restablecer</button></h3><ul class="config-list" id="listaIngresos"></ul><div class="add-cat-form"><input type="text" id="nuevaCatIngreso" placeholder="Nueva categoría"><button class="btn-primary" onclick="agregarCategoriaUI('ingreso')">➕ Agregar</button></div></div><div class="config-col"><h3>💸 Gastos <button class="btn-secondary" style="width:auto; padding:4px 8px;" onclick="reiniciarCategoriasDefault('gasto')">Restablecer</button></h3><ul class="config-list" id="listaGastos"></ul><div class="add-cat-form">
+                <input type="text" id="nuevaCatGasto" placeholder="Nueva categoría">
+                <select id="selectDistribucionCatGasto">${distribucionesSelect}</select>
+                <button class="btn-primary" onclick="agregarCategoriaConDistribucionUI('gasto')">➕ Agregar</button>
+            </div></div></div></div>`;
+}
+function cargarListasConfiguracion() {
+    const listaIng = document.getElementById('listaIngresos');
+    const listaGas = document.getElementById('listaGastos');
+    if(listaIng) {
+        listaIng.innerHTML = '';
+        categoriasPersonalizadas.ingreso.forEach(cat => {
+            listaIng.innerHTML += `<li><span>${cat}</span><div><button class="btn-secondary" style="width:auto; padding:2px 6px;" onclick="editarCategoriaUI('ingreso','${cat}')">✏️</button><button class="btn-delete" style="width:auto; padding:2px 6px; margin-left:4px;" onclick="eliminarCategoriaUI('ingreso','${cat}')">🗑️</button></div></li>`;
+        });
+    }
+    if(listaGas) {
+        listaGas.innerHTML = '';
+        categoriasPersonalizadas.gasto.forEach(cat => {
+            listaGas.innerHTML += `<li><span>${cat}</span><div><button class="btn-secondary" style="width:auto; padding:2px 6px;" onclick="editarCategoriaUI('gasto','${cat}')">✏️</button><button class="btn-delete" style="width:auto; padding:2px 6px; margin-left:4px;" onclick="eliminarCategoriaUI('gasto','${cat}')">🗑️</button></div></li>`;
+        });
+    }
+    // Actualizar el select de distribuciones en el formulario de agregar categoría
+    const selectDist = document.getElementById('selectDistribucionCatGasto');
+    if(selectDist) {
+        const currentVal = selectDist.value;
+        selectDist.innerHTML = '<option value="">Ninguna</option>';
+        distribuciones.forEach(d => {
+            selectDist.innerHTML += `<option value="${d.id}">${d.nombre}</option>`;
+        });
+        if (currentVal) selectDist.value = currentVal;
+    }
+}
+// Nueva función para agregar categoría de gasto con distribución opcional
+function agregarCategoriaConDistribucionUI(tipo) {
+    const input = document.getElementById('nuevaCatGasto');
+    const nombre = input.value.trim();
+    if (!nombre) return alert('Escribe un nombre');
+    const selectDist = document.getElementById('selectDistribucionCatGasto');
+    const idDist = selectDist.value;
+    if (agregarCategoriaYAsignar(tipo, nombre, idDist || null)) {
+        input.value = '';
+        if (vistaActual === 'configuracion') {
+            cargarListasConfiguracion();
+        }
+        actualizarSelects();
+        if (vistaActual === 'presupuestos') renderizarVistaActual();
+        if (vistaActual === 'dashboard' && subSeccionDashboard === 'categorias') actualizarGraficoCategorias();
+        alert('Categoría agregada' + (idDist ? ' y asignada a la distribución' : ''));
+    } else {
+        alert('La categoría ya existe');
+    }
+}
+function agregarCategoriaUI(tipo) {
+    // Esta función se mantiene para ingresos
+    const input = document.getElementById(`nuevaCat${tipo==='ingreso'?'Ingreso':'Gasto'}`);
+    const nombre = input.value.trim();
+    if (!nombre) return alert('Escribe un nombre');
+    if (agregarCategoria(tipo, nombre)) {
+        input.value = '';
+        guardarDatos();
+        if (vistaActual === 'configuracion') cargarListasConfiguracion();
+        actualizarSelects();
+        if (vistaActual === 'presupuestos') renderizarVistaActual();
+        if (vistaActual === 'dashboard' && subSeccionDashboard === 'categorias') actualizarGraficoCategorias();
+        alert('Categoría agregada');
+    } else alert('La categoría ya existe o es inválida');
+}
+// ============ CORRECCIÓN: alias para editorCategoriaUI ============
+function editorCategoriaUI(tipo, viejoNombre) {
+    // Redirige a editarCategoriaUI (sin la 'r')
+    editarCategoriaUI(tipo, viejoNombre);
+}
+// ================================================================
+function editarCategoriaUI(tipo, viejoNombre) {
+    let nuevo = prompt(`Editar categoría "${viejoNombre}"`, viejoNombre);
+    if(nuevo && nuevo !== viejoNombre) {
+        if(editarCategoria(tipo, viejoNombre, nuevo)) {
+            guardarDatos();
+            if(vistaActual === 'configuracion') cargarListasConfiguracion();
+            actualizarSelects();
+            if(vistaActual === 'presupuestos') renderizarVistaActual();
+            if(vistaActual === 'dashboard' && subSeccionDashboard === 'categorias') actualizarGraficoCategorias();
+            alert('Categoría editada');
+        } else alert('No se pudo editar (nombre duplicado o inválido)');
+    }
+}
+function eliminarCategoriaUI(tipo, nombre) {
+    if(confirm(`¿Eliminar categoría "${nombre}"?`)) {
+        if(eliminarCategoria(tipo, nombre)) {
+            guardarDatos();
+            if(vistaActual === 'configuracion') cargarListasConfiguracion();
+            actualizarSelects();
+            if(vistaActual === 'presupuestos') renderizarVistaActual();
+            if(vistaActual === 'dashboard' && subSeccionDashboard === 'categorias') actualizarGraficoCategorias();
+            alert('Categoría eliminada');
+        }
+    }
+}
+function reiniciarCategoriasDefault(tipo) {
+    if(confirm(`¿Restablecer categorías de ${tipo==='ingreso'?'ingresos':'gastos'}?`)) {
+        if(tipo === 'ingreso') categoriasPersonalizadas.ingreso = ['Sueldo', 'Ventas', 'Otros'];
+        else categoriasPersonalizadas.gasto = ['Alimentos', 'Vivienda', 'Otros'];
+        guardarCategorias();
+        guardarDatos();
+        if(vistaActual === 'configuracion') cargarListasConfiguracion();
+        actualizarSelects();
+        if(vistaActual === 'presupuestos') renderizarVistaActual();
+        if(vistaActual === 'dashboard' && subSeccionDashboard === 'categorias') actualizarGraficoCategorias();
+        alert('Categorías restablecidas');
+    }
+}
+
+// ==================== FUNCIÓN PARA CERRAR MODAL DE ASIGNACIÓN ====================
+function cerrarModalAsignacion() {
+    if (modalAsignacionRef) {
+        modalAsignacionRef.remove();
+        modalAsignacionRef = null;
+    }
+}
+window.cerrarModalAsignacion = cerrarModalAsignacion;
+
+// ==================== VISTA DE CONFIGURACIÓN DE DISTRIBUCIONES (con botón "Crear categoría") ====================
+function renderDistribucion() {
+    let html = `<div class="form-section"><div class="form-title">📊 Configuración de distribuciones</div>`;
+    html += `<div style="margin-bottom:12px;"><h4>Lista de distribuciones</h4>`;
+    html += `<div id="listaDistribucionesEditable">`;
+    if (distribuciones.length === 0) {
+        html += `<div class="empty-state">No hay distribuciones. Agrega una usando el botón "+"</div>`;
+    } else {
+        distribuciones.forEach((d, index) => {
+            html += `<div class="distribucion-fila" data-id="${d.id}">
+                        <input type="text" class="dist-nombre" value="${d.nombre}" placeholder="Nombre" oninput="actualizarDistribucionDesdeInput('${d.id}', 'nombre', this.value)">
+                        <input type="number" class="dist-porcentaje" value="${d.porcentaje}" step="0.01" min="0" max="100" placeholder="%" oninput="actualizarDistribucionDesdeInput('${d.id}', 'porcentaje', parseFloat(this.value) || 0)">
+                        <div class="acciones">
+                            <button class="btn-asignar" onclick="asignarCategoriasDistribucionUI('${d.id}')">📋 Asignar</button>
+                            <button class="btn-crear-cat" onclick="crearCategoriaParaDistribucion('${d.id}')">➕ Crear categoría</button>
+                            <button class="btn-delete" style="padding:2px 6px;" onclick="eliminarFilaDistribucion('${d.id}')">🗑️</button>
+                        </div>
+                    </div>`;
+        });
+    }
+    html += `</div>`;
+    html += `<button class="btn-secondary" style="width:auto; padding:4px 12px; margin-top:8px;" onclick="agregarFilaDistribucion()">➕ Agregar distribución</button>`;
+    html += `</div>`;
+
+    // Mensaje de validación y botón guardar
+    const suma = distribuciones.reduce((acc, d) => acc + d.porcentaje, 0);
+    let msgClass = 'warning';
+    let msgText = `⚠️ Falta ${(100 - suma).toFixed(2)}% para completar el 100%`;
+    if (suma === 100) { msgClass = 'ok'; msgText = '✅ Suma de porcentajes: 100% (completo)'; }
+    else if (suma > 100) { msgClass = 'error'; msgText = `❌ La suma supera el 100% (${suma.toFixed(2)}%). Ajusta los porcentajes.`; }
+
+    html += `<div id="mensajePorcentaje" class="msg-porcentaje ${msgClass}">${msgText}</div>`;
+    html += `<button class="btn-primary" id="btnGuardarDist" onclick="guardarDistribucionesDesdeUI()" ${suma !== 100 ? 'disabled' : ''}>💾 Guardar</button>`;
+    html += `</div>`;
+    return html;
+}
+
+// NUEVA FUNCIÓN: crear categoría desde distribución
+function crearCategoriaParaDistribucion(idDist) {
+    const nombre = prompt('Nombre de la nueva categoría de gasto:');
+    if (!nombre || !nombre.trim()) return;
+    const nombreLimpio = nombre.trim();
+    // Verificar si ya existe
+    if (categoriasPersonalizadas.gasto.some(c => c.toLowerCase() === nombreLimpio.toLowerCase())) {
+        alert('La categoría ya existe. Puedes asignarla desde el botón "Asignar categorías".');
+        return;
+    }
+    if (agregarCategoriaYAsignar('gasto', nombreLimpio, idDist)) {
+        guardarDatos();
+        renderizarVistaActual();
+        alert(`Categoría "${nombreLimpio}" creada y asignada a la distribución.`);
+    } else {
+        alert('Error al crear la categoría.');
+    }
+}
+
+// ==================== FUNCIONES PARA LA VISTA DE DISTRIBUCIÓN (edición en línea) ====================
+function agregarFilaDistribucion() {
+    const nuevo = { id: 'new_' + Date.now(), nombre: 'Nueva', porcentaje: 0, categoriasGasto: [] };
+    distribuciones.push(nuevo);
+    renderizarVistaActual(); // refresca la vista
+}
+
+function eliminarFilaDistribucion(id) {
+    if (id.startsWith('new_')) {
+        distribuciones = distribuciones.filter(d => d.id !== id);
+    } else {
+        if (confirm('¿Eliminar esta distribución?')) {
+            distribuciones = distribuciones.filter(d => d.id !== id);
+        } else return;
+    }
+    renderizarVistaActual();
+}
+
+function actualizarDistribucionDesdeInput(id, campo, valor) {
+    const d = distribuciones.find(item => item.id === id);
+    if (!d) return;
+    if (campo === 'nombre') d.nombre = valor;
+    else if (campo === 'porcentaje') {
+        d.porcentaje = isNaN(valor) ? 0 : parseFloat(valor);
+    }
+    actualizarMensajeYBotón();
+}
+
+function actualizarMensajeYBotón() {
+    const suma = distribuciones.reduce((acc, d) => acc + d.porcentaje, 0);
+    const mensajeEl = document.getElementById('mensajePorcentaje');
+    const btnGuardar = document.getElementById('btnGuardarDist');
+    if (mensajeEl) {
+        let msgClass = 'warning';
+        let msgText = `⚠️ Falta ${(100 - suma).toFixed(2)}% para completar el 100%`;
+        if (suma === 100) { msgClass = 'ok'; msgText = '✅ Suma de porcentajes: 100% (completo)'; }
+        else if (suma > 100) { msgClass = 'error'; msgText = `❌ La suma supera el 100% (${suma.toFixed(2)}%). Ajusta los porcentajes.`; }
+        mensajeEl.className = `msg-porcentaje ${msgClass}`;
+        mensajeEl.textContent = msgText;
+    }
+    if (btnGuardar) {
+        btnGuardar.disabled = (suma !== 100);
+    }
+}
+
+function guardarDistribucionesDesdeUI() {
+    const nuevas = [];
+    distribuciones.forEach(d => {
+        if (d.id.startsWith('new_')) {
+            const nuevoId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+            nuevas.push({ ...d, id: nuevoId });
+        } else {
+            nuevas.push(d);
+        }
+    });
+    const nombres = nuevas.map(d => d.nombre.toLowerCase());
+    if (new Set(nombres).size !== nombres.length) {
+        alert('No puede haber distribuciones con el mismo nombre');
+        return;
+    }
+    const suma = nuevas.reduce((acc, d) => acc + d.porcentaje, 0);
+    if (suma !== 100) {
+        alert(`La suma de porcentajes debe ser exactamente 100%. Actual: ${suma.toFixed(2)}%`);
+        return;
+    }
+    distribuciones = nuevas;
+    guardarDistribuciones();
+    guardarDatos();
+    alert('Distribuciones guardadas');
+    renderizarVistaActual(); // refresca para mostrar ids reales
+}
+
+function cargarListasDistribucion() {
+    // Esta función se mantiene por compatibilidad
+    setTimeout(() => actualizarMensajeYBotón(), 100);
+}
+
+function obtenerCategoriasSinAsignar() {
+    const todasCats = categoriasPersonalizadas.gasto;
+    const asignadas = new Set();
+    distribuciones.forEach(d => d.categoriasGasto.forEach(c => asignadas.add(c)));
+    return todasCats.filter(c => !asignadas.has(c));
+}
+
+function asignarCategoriasPendientes() {
+    const catsSinAsignar = obtenerCategoriasSinAsignar();
+    if (catsSinAsignar.length === 0) return alert('No hay categorías pendientes');
+    let dist = distribuciones.find(d => d.nombre.toLowerCase() === 'otros');
+    if (!dist) {
+        const suma = distribuciones.reduce((acc, d) => acc + d.porcentaje, 0);
+        const restante = 100 - suma;
+        if (restante <= 0) {
+            alert('No hay porcentaje disponible para crear "Otros". Ajusta los porcentajes primero.');
+            return;
+        }
+        const nuevoId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        dist = { id: nuevoId, nombre: 'Otros', porcentaje: restante, categoriasGasto: [] };
+        distribuciones.push(dist);
+        guardarDistribuciones();
+        guardarDatos();
+        alert(`Creada distribución "Otros" con ${restante}% automáticamente. Ahora asigna las categorías.`);
+        renderizarVistaActual();
+        return;
+    }
+    const nuevasCats = [...new Set([...dist.categoriasGasto, ...catsSinAsignar])];
+    if (actualizarCategoriasDistribucion(dist.id, nuevasCats)) {
+        guardarDatos();
+        renderizarVistaActual();
+        alert(`Categorías asignadas a "${dist.nombre}"`);
+    }
+}
+
+// ==================== FUNCIONES PARA ASIGNACIÓN DE CATEGORÍAS (modal - CORREGIDO) ====================
+function asignarCategoriasDistribucionUI(id) {
+    // Cerrar cualquier modal abierto antes
+    cerrarModalAsignacion();
+    
+    const d = distribuciones.find(item => item.id === id);
+    if (!d) return;
+    const categoriasDisponibles = categoriasPersonalizadas.gasto;
+    if (categoriasDisponibles.length === 0) {
+        alert('No hay categorías de gasto disponibles. Crea algunas en Configuración > Categorías.');
+        return;
+    }
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; display:flex; justify-content:center; align-items:center;';
+    modal.innerHTML = `
+        <div style="background:white; border-radius:20px; padding:24px; max-width:400px; width:90%;">
+            <h4 style="margin-bottom:12px;">Asignar categorías a "${d.nombre}"</h4>
+            <div style="max-height:150px; overflow-y:auto; margin-bottom:12px;">
+                ${categoriasDisponibles.map(cat => `
+                    <label style="display:block; padding:4px 0;">
+                        <input type="checkbox" value="${cat}" ${d.categoriasGasto.includes(cat) ? 'checked' : ''}> ${cat}
+                    </label>
+                `).join('')}
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button class="btn-primary" onclick="guardarAsignacionCategorias('${id}')">💾 Guardar</button>
+                <button class="btn-secondary" onclick="cerrarModalAsignacion()">Cancelar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modalAsignacionRef = modal;
+}
+
+function guardarAsignacionCategorias(id) {
+    const modal = modalAsignacionRef;
+    if (!modal) return;
+    const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
+    const categorias = [];
+    checkboxes.forEach(cb => { if (cb.checked) categorias.push(cb.value); });
+    if (actualizarCategoriasDistribucion(id, categorias)) {
+        cerrarModalAsignacion();
+        guardarDatos();
+        renderizarVistaActual();
+        alert('Categorías asignadas correctamente');
+    } else {
+        alert('Error al asignar categorías');
+    }
+}
+
+// ==================== EVENT HANDLERS ====================
+function attachDashboardEvents() {
+    if(subSeccionDashboard==='evolucion') actualizarGraficoBarrasDinamico();
+    else if(subSeccionDashboard==='categorias') actualizarGraficoCategorias();
+}
+function attachMovimientosEvents() { actualizarSelects(); setTimeout(()=>aplicarFiltros(),50); }
+function attachPresupuestosEvents() { actualizarSelects(); }
+function attachPlanEvents() { /* No requiere inicialización extra */ }
+function attachConfiguracionEvents() { cargarListasConfiguracion(); }
+function attachDistribucionEvents() {
+    setTimeout(() => actualizarMensajeYBotón(), 100);
+}
+
+function aplicarFiltros() {
+    let filtrados = [...movimientos];
+    let i=document.getElementById('filtroFechaInicio')?.value, f=document.getElementById('filtroFechaFin')?.value, t=document.getElementById('filtroTipo')?.value, c=document.getElementById('filtroCategoria')?.value;
+    if(i) filtrados = filtrados.filter(m=>m.fecha>=i);
+    if(f) filtrados = filtrados.filter(m=>m.fecha<=f);
+    if(t) filtrados = filtrados.filter(m=>m.tipo===t);
+    if(c) filtrados = filtrados.filter(m=>m.categoria===c);
+    filtrados = ordenarMovimientosPorFecha(filtrados);
+    let cont = document.getElementById('todosMovimientos');
+    if(cont) cont.innerHTML = renderMovimientosLista(filtrados);
+}
+function limpiarFiltros() {
+    let i=document.getElementById('filtroFechaInicio'), f=document.getElementById('filtroFechaFin'), t=document.getElementById('filtroTipo'), c=document.getElementById('filtroCategoria');
+    if(i) i.value=''; if(f) f.value=''; if(t) t.value=''; if(c) c.value='';
+    aplicarFiltros();
+}
+function eliminarMovimiento(id) { 
+    if(confirm('¿Eliminar?')){ 
+        movimientos = movimientos.filter(m=>m.id!==id); 
+        movimientos = ordenarMovimientosPorFecha(movimientos);
+        guardarDatos(); 
+        renderizarVistaActual(); 
+    } 
+}
+function abrirModalEditar(id) {
+    let m = movimientos.find(m=>m.id===id); if(!m) return;
+    document.getElementById('editId').value=m.id;
+    document.getElementById('editTipo').value=m.tipo;
+    document.getElementById('editMonto').value=formatearMontoVisual(m.monto);
+    document.getElementById('editDescripcion').value=m.descripcion;
+    document.getElementById('editFecha').value=m.fecha;
+    actualizarSelectEditCategoria(m.tipo);
+    document.getElementById('editCategoria').value=m.categoria;
+    let sel = document.getElementById('editTipo');
+    let old = sel._listener; if(old) sel.removeEventListener('change',old);
+    let nfn = function(){ actualizarSelectEditCategoria(this.value); };
+    sel.addEventListener('change',nfn); sel._listener=nfn;
+    document.getElementById('editModal').style.display='flex';
+}
+function cerrarModal() { document.getElementById('editModal').style.display='none'; }
+document.getElementById('editForm')?.addEventListener('submit',(e)=>{
+    e.preventDefault();
+    let monto = convertirTextoAMonto(document.getElementById('editMonto').value);
+    if(isNaN(monto)||monto<=0){ alert('Monto inválido'); return; }
+    let id = parseInt(document.getElementById('editId').value);
+    let idx = movimientos.findIndex(m=>m.id===id);
+    if(idx!==-1){
+        movimientos[idx] = {id, tipo:document.getElementById('editTipo').value, monto, descripcion:document.getElementById('editDescripcion').value, categoria:document.getElementById('editCategoria').value, fecha:document.getElementById('editFecha').value};
+        movimientos = ordenarMovimientosPorFecha(movimientos);
+        guardarDatos(); 
+        renderizarVistaActual(); 
+        cerrarModal(); 
+        alert('✅ Actualizado');
+    }
+});
+function abrirModalNuevoMovimiento() {
+    let modal = document.getElementById('nuevoMovimientoModal');
+    let tipo = document.getElementById('modalTipo');
+    let cat = document.getElementById('modalCategoria');
+    let opts = tipo.value==='ingreso' ? categoriasPersonalizadas.ingreso : categoriasPersonalizadas.gasto;
+    cat.innerHTML=''; opts.forEach(c=>cat.innerHTML+=`<option value="${c}">${c}</option>`);
+    document.getElementById('modalFecha').value = new Date().toLocaleDateString('en-CA');
+    document.getElementById('modalMonto').value='';
+    document.getElementById('modalDescripcion').value='';
+    modal.style.display='flex';
+}
+function cerrarModalNuevoMovimiento() { document.getElementById('nuevoMovimientoModal').style.display='none'; }
+document.getElementById('modalTipo')?.addEventListener('change',function(){
+    let opts = this.value==='ingreso'?categoriasPersonalizadas.ingreso:categoriasPersonalizadas.gasto;
+    let cat = document.getElementById('modalCategoria');
+    cat.innerHTML=''; opts.forEach(c=>cat.innerHTML+=`<option value="${c}">${c}</option>`);
+});
+document.getElementById('nuevoMovimientoForm')?.addEventListener('submit',(e)=>{
+    e.preventDefault();
+    let monto = convertirTextoAMonto(document.getElementById('modalMonto').value);
+    if(isNaN(monto)||monto<=0){ alert('Monto mayor a cero'); return; }
+    let desc = document.getElementById('modalDescripcion').value.trim();
+    if(!desc){ alert('Descripción requerida'); return; }
+    let cat = document.getElementById('modalCategoria').value;
+    if(!cat){ alert('Categoría requerida'); return; }
+    let nuevo = { id:Date.now(), tipo:document.getElementById('modalTipo').value, monto, descripcion:desc, categoria:cat, fecha:document.getElementById('modalFecha').value };
+    movimientos.push(nuevo);
+    movimientos = ordenarMovimientosPorFecha(movimientos);
+    guardarDatos(); 
+    renderizarVistaActual(); 
+    cerrarModalNuevoMovimiento(); 
+    alert('✅ Movimiento guardado');
+});
+function guardarPresupuesto() {
+    let cat = document.getElementById('selectCategoriaPresupuesto')?.value;
+    let monto = parseFloat(document.getElementById('montoPresupuesto')?.value);
+    if(!cat){ alert('Seleccione categoría'); return; }
+    if(isNaN(monto)||monto<0){ alert('Monto válido'); return; }
+    presupuestos[cat]=monto; guardarDatos(); renderizarVistaActual(); alert(`✅ Presupuesto ${cat}: ${formatearMontoVisual(monto)} Bs`);
+}
+function cambiarPeriodoDashboard(p) { periodoDashboard=p; if(subSeccionDashboard==='balance') renderizarVistaActual(); }
+function cambiarSubSeccionDashboard(s) { subSeccionDashboard=s; renderizarVistaActual(); }
+function cambiarAgrupacionDashboard(t) { agrupacionActual=t; if(subSeccionDashboard==='evolucion'){ actualizarGraficoBarrasDinamico(); renderizarVistaActual(); } }
+function cambiarPeriodoCategoriasDashboard(p) { periodoCategorias=p; if(subSeccionDashboard==='categorias'){ actualizarGraficoCategorias(); renderizarVistaActual(); } }
+function cambiarTipoCategoriasDashboard(t) { tipoCategorias=t; if(subSeccionDashboard==='categorias'){ actualizarGraficoCategorias(); renderizarVistaActual(); } }
+function cambiarVista(v) { vistaActual=v; renderizarVistaActual(); }
+
+function abrirMovimientosModal() {
+    const modal = document.getElementById('movimientosModal');
+    const container = document.getElementById('listaMovimientosModal');
+    const movimientosOrdenados = ordenarMovimientosPorFecha(movimientos);
+    if (movimientosOrdenados.length === 0) {
+        container.innerHTML = '<div class="empty-state">No hay movimientos registrados</div>';
+    } else {
+        container.innerHTML = movimientosOrdenados.map(m => `
+            <div class="modal-movimiento-item">
+                <div class="modal-movimiento-info">
+                    <div class="modal-movimiento-desc">${m.descripcion}</div>
+                    <div class="modal-movimiento-cat">📌 ${m.categoria}</div>
+                    <div class="modal-movimiento-date">📅 ${m.fecha}</div>
+                </div>
+                <div class="modal-movimiento-amount ${m.tipo === 'ingreso' ? 'income' : 'expense'}">
+                    ${m.tipo === 'ingreso' ? '+' : '-'} ${formatearMontoVisual(m.monto)} Bs
+                </div>
+            </div>
+        `).join('');
+    }
+    modal.style.display = 'flex';
+}
+function cerrarMovimientosModal() { document.getElementById('movimientosModal').style.display = 'none'; }
+
+// ==================== MENÚ Y EXPORTAR ====================
+function toggleMenu() { let s=document.getElementById('sidebar'), o=document.getElementById('overlay'); s.classList.toggle('open'); o.classList.toggle('active'); document.body.style.overflow = s.classList.contains('open')?'hidden':''; }
+function cerrarMenu() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow=''; }
+function cerrarYCambiarVista(v) { cerrarMenu(); cambiarVista(v); }
+function exportarJSON() {
+    movimientos = ordenarMovimientosPorFecha(movimientos);
+    let data = JSON.stringify({ 
+        movimientos, 
+        presupuestos, 
+        categorias: categoriasPersonalizadas,
+        distribuciones: distribuciones,
+        version: "6.1", 
+        fechaExportacion: new Date().toISOString() 
+    }, null, 2);
+    let blob = new Blob([data],{type:'application/json'}); let a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`finanzas_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(a.href); alert('✅ Datos exportados');
+}
+function importarJSONPrompt() {
+    let input = document.createElement('input'); input.type='file'; input.accept='.json';
+    input.onchange=e=>{ let file=e.target.files[0]; let reader=new FileReader(); reader.onload=ev=>{ try{ let data=JSON.parse(ev.target.result); if(data.movimientos) movimientos = ordenarMovimientosPorFecha(data.movimientos); if(data.presupuestos) presupuestos=data.presupuestos; if(data.categorias) { categoriasPersonalizadas = data.categorias; guardarCategorias(); } if(data.distribuciones) { distribuciones = data.distribuciones; guardarDistribuciones(); } guardarDatos(); renderizarVistaActual(); alert('✅ Datos importados'); }catch(e){ alert('Error JSON'); } }; reader.readAsText(file); };
+    input.click();
+}
+function abrirAcerca() { document.getElementById('acercaModal').style.display='flex'; }
+function cerrarAcercaModal() { document.getElementById('acercaModal').style.display='none'; }
+window.onclick = e => { 
+    if(e.target===document.getElementById('editModal')) cerrarModal(); 
+    if(e.target===document.getElementById('acercaModal')) cerrarAcercaModal(); 
+    if(e.target===document.getElementById('nuevoMovimientoModal')) cerrarModalNuevoMovimiento();
+    if(e.target===document.getElementById('movimientosModal')) cerrarMovimientosModal();
+    if(e.target===modalAsignacionRef && modalAsignacionRef) cerrarModalAsignacion();
+};
+
+// Exponer funciones globales
+window.cambiarVista = cambiarVista; window.toggleMenu = toggleMenu; window.cerrarMenu = cerrarMenu; window.cerrarYCambiarVista = cerrarYCambiarVista;
+window.eliminarMovimiento = eliminarMovimiento; window.abrirModalEditar = abrirModalEditar; window.cerrarModal = cerrarModal;
+window.aplicarFiltros = aplicarFiltros; window.limpiarFiltros = limpiarFiltros; window.guardarPresupuesto = guardarPresupuesto;
+window.exportarJSON = exportarJSON; window.importarJSONPrompt = importarJSONPrompt; window.abrirAcerca = abrirAcerca; window.cerrarAcercaModal = cerrarAcercaModal;
+window.abrirModalNuevoMovimiento = abrirModalNuevoMovimiento; window.cerrarModalNuevoMovimiento = cerrarModalNuevoMovimiento;
+window.actualizarSelectEditCategoria = actualizarSelectEditCategoria; window.formatearMontoVisual = formatearMontoVisual;
+window.cambiarPeriodoDashboard = cambiarPeriodoDashboard; window.cambiarSubSeccionDashboard = cambiarSubSeccionDashboard;
+window.cambiarAgrupacionDashboard = cambiarAgrupacionDashboard; window.cambiarPeriodoCategoriasDashboard = cambiarPeriodoCategoriasDashboard;
+window.cambiarTipoCategoriasDashboard = cambiarTipoCategoriasDashboard;
+window.agregarCategoriaUI = agregarCategoriaUI; window.agregarCategoriaConDistribucionUI = agregarCategoriaConDistribucionUI;
+window.editarCategoriaUI = editarCategoriaUI; window.editorCategoriaUI = editorCategoriaUI;
+window.eliminarCategoriaUI = eliminarCategoriaUI;
+window.reiniciarCategoriasDefault = reiniciarCategoriasDefault;
+window.abrirMovimientosModal = abrirMovimientosModal; window.cerrarMovimientosModal = cerrarMovimientosModal;
+window.agregarFilaDistribucion = agregarFilaDistribucion;
+window.eliminarFilaDistribucion = eliminarFilaDistribucion;
+window.actualizarDistribucionDesdeInput = actualizarDistribucionDesdeInput;
+window.guardarDistribucionesDesdeUI = guardarDistribucionesDesdeUI;
+window.asignarCategoriasDistribucionUI = asignarCategoriasDistribucionUI;
+window.guardarAsignacionCategorias = guardarAsignacionCategorias;
+window.asignarCategoriasPendientes = asignarCategoriasPendientes;
+window.crearCategoriaParaDistribucion = crearCategoriaParaDistribucion;
+window.cerrarModalAsignacion = cerrarModalAsignacion;
+
+cargarDatos();
+</script>
+</body>
+</html>
